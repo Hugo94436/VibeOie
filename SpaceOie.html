@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Space Goose 🌌 - Advanced</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;700&display=swap');
+
+        body {
+            background-color: #05050A;
+            color: #E2E8F0;
+            font-family: 'Rajdhani', sans-serif;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        h1, h2, h3, .orbitron { font-family: 'Orbitron', sans-serif; }
+
+        /* Arrière-plan Espace */
+        .space-bg {
+            position: fixed; inset: 0; z-index: -10;
+            background: 
+                radial-gradient(1px 1px at 15% 15%, #ffffff 100%, transparent),
+                radial-gradient(1.5px 1.5px at 25% 40%, #ffffff 100%, transparent),
+                radial-gradient(2px 2px at 45% 75%, #ffffff 100%, transparent),
+                radial-gradient(1px 1px at 65% 25%, #ffffff 100%, transparent),
+                radial-gradient(1.5px 1.5px at 85% 85%, #ffffff 100%, transparent),
+                radial-gradient(2px 2px at 95% 45%, #ffffff 100%, transparent);
+            background-size: 250px 250px;
+            animation: moveBg 100s linear infinite;
+        }
+
+        @keyframes moveBg {
+            from { background-position: 0 0; }
+            to { background-position: -500px 500px; }
+        }
+
+        /* Plateau et Cases */
+        #board-container {
+            position: relative;
+            width: 100%; max-width: 90vh;
+            aspect-ratio: 1 / 1;
+            margin: auto;
+        }
+
+        .tile {
+            position: absolute;
+            width: 5%; height: 5%;
+            margin-left: -2.5%; margin-top: -2.5%;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold;
+            font-size: clamp(0.7rem, 1.2vmin, 1rem);
+            transition: all 0.4s ease-out;
+            z-index: 10;
+        }
+
+        .tile-dimmed {
+            background-color: #0a0a0d;
+            border: 2px solid var(--tile-color);
+            color: var(--tile-color);
+            opacity: 0.6;
+        }
+
+        .tile-lit {
+            background-color: var(--tile-color);
+            border: 2px solid #fff;
+            color: #fff;
+            box-shadow: 0 0 15px var(--tile-color), inset 0 0 8px rgba(255,255,255,0.5);
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+            transform: scale(1.2);
+            opacity: 1;
+            z-index: 15;
+        }
+
+        /* Pions Vaisseaux */
+        .pawn {
+            position: absolute;
+            width: 6%; height: 6%;
+            transition: top 0.4s cubic-bezier(0.25, 1, 0.5, 1), left 0.4s cubic-bezier(0.25, 1, 0.5, 1), transform 0.3s;
+            z-index: 30;
+            filter: drop-shadow(0 0 10px currentColor);
+        }
+
+        /* Animation Textes Flottants */
+        @keyframes floatUpFade {
+            0% { opacity: 0; transform: translateY(10px) scale(0.8); }
+            20% { opacity: 1; transform: translateY(-10px) scale(1.1); }
+            80% { opacity: 1; transform: translateY(-30px) scale(1); }
+            100% { opacity: 0; transform: translateY(-40px) scale(0.9); }
+        }
+        .floating-text {
+            position: absolute;
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(1rem, 2vmin, 1.5rem);
+            font-weight: 900;
+            text-transform: uppercase;
+            text-shadow: 0 2px 4px #000, 0 0 10px currentColor;
+            pointer-events: none;
+            z-index: 50;
+            animation: floatUpFade 2.5s ease-out forwards;
+            white-space: nowrap;
+        }
+
+        /* Cartes d'action */
+        .action-card {
+            transition: all 0.2s;
+            cursor: pointer;
+            border-width: 2px;
+        }
+        .action-card:hover { transform: scale(1.02); }
+        .action-card:active { transform: scale(0.98); }
+        
+        .rarity-common { border-color: #9CA3AF; background-color: rgba(156, 163, 175, 0.1); box-shadow: 0 0 8px rgba(156, 163, 175, 0.3); }
+        .rarity-rare { border-color: #3B82F6; background-color: rgba(59, 130, 246, 0.1); box-shadow: 0 0 12px rgba(59, 130, 246, 0.5); }
+        .rarity-epic { border-color: #A855F7; background-color: rgba(168, 85, 247, 0.1); box-shadow: 0 0 15px rgba(168, 85, 247, 0.7); }
+        
+        .card-active {
+            border-color: #FBBF24 !important;
+            box-shadow: 0 0 20px #FBBF24 !important;
+            transform: scale(1.05);
+        }
+
+        /* Modal Début & Transition Tour */
+        #modal-overlay, #turn-overlay, #victory-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(5px);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 100;
+        }
+
+        /* Dé et Compteur */
+        .dice-container {
+            display: flex; gap: 10px; justify-content: center; margin-bottom: 20px;
+        }
+        .dice-box {
+            width: 60px; height: 60px;
+            background: #1F2937; border: 2px solid #4B5563; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2rem; font-weight: bold;
+            box-shadow: inset 0 0 10px #000;
+        }
+        .rolling { animation: shake 0.4s infinite; color: #38BDF8;}
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            25% { transform: translate(-1px, -2px) rotate(-5deg); }
+            50% { transform: translate(-3px, 0px) rotate(5deg); }
+            75% { transform: translate(2px, 2px) rotate(-5deg); }
+            100% { transform: translate(1px, -1px) rotate(0deg); }
+        }
+        #step-counter-display {
+            font-size: 4rem; text-shadow: 0 0 20px currentColor;
+            display: none; align-items: center; justify-content: center;
+            height: 100px;
+        }
+
+    </style>
+</head>
+<body class="flex flex-col md:flex-row h-screen w-screen p-2 md:p-0">
+
+    <div class="space-bg"></div>
+
+    <!-- START MODAL -->
+    <div id="modal-overlay">
+        <div class="bg-gray-900 border border-gray-700 p-8 rounded-2xl shadow-[0_0_50px_rgba(59,130,246,0.5)] text-center w-96 max-w-full">
+            <h1 class="text-4xl text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-pink-500 mb-6 orbitron">SPACE GOOSE</h1>
+            <p class="mb-4 text-gray-300">Choisissez le nombre de joueurs :</p>
+            <div class="flex flex-col gap-3">
+                <button onclick="startGame(2)" class="px-4 py-3 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded orbitron font-bold">2 Joueurs</button>
+                <button onclick="startGame(3)" class="px-4 py-3 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded orbitron font-bold">3 Joueurs</button>
+                <button onclick="startGame(4)" class="px-4 py-3 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded orbitron font-bold">4 Joueurs</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TURN TRANSITION OVERLAY -->
+    <div id="turn-overlay" style="display: none;">
+        <h2 id="turn-overlay-text" class="text-6xl md:text-8xl orbitron font-black text-center drop-shadow-[0_0_30px_rgba(255,255,255,0.8)] scale-0 transition-transform duration-500"></h2>
+    </div>
+
+    <!-- VICTORY OVERLAY -->
+    <div id="victory-overlay" style="display: none; flex-direction: column;">
+        <h1 class="text-6xl text-green-400 orbitron mb-4 text-center">VICTOIRE !</h1>
+        <h2 id="victory-text" class="text-3xl text-white mb-8 text-center"></h2>
+        <button onclick="location.reload()" class="px-8 py-4 bg-blue-600 hover:bg-blue-500 rounded text-xl orbitron font-bold shadow-[0_0_20px_#2563EB]">Rejouer</button>
+    </div>
+
+    <!-- LEFT COLUMN (HUD) -->
+    <aside class="w-full md:w-1/4 bg-gray-900/80 border-b md:border-b-0 md:border-r border-gray-700 p-4 flex flex-col items-center justify-center shrink-0 backdrop-blur-md z-20">
+        <h2 class="text-gray-400 text-sm uppercase tracking-widest mb-1">Système de Navigation</h2>
+        <div id="current-player-panel" class="p-4 rounded-xl border-2 w-full text-center mb-6 shadow-lg transition-colors">
+            <h1 id="current-player-name" class="text-3xl orbitron font-bold mb-2">Joueur</h1>
+            <div id="prison-status" class="text-red-400 font-bold hidden mb-2 text-sm">PRISON: <span id="prison-turns"></span> tours restants</div>
+        </div>
+
+        <!-- Dice Action & Active Buff -->
+        <div id="action-panel" class="w-full flex flex-col items-center">
+            
+            <div id="active-buff-display" class="text-yellow-400 font-bold text-lg mb-3 orbitron drop-shadow-[0_0_8px_rgba(251,191,36,0.8)] hidden">
+                Effet Actif : Aucun
+            </div>
+
+            <button id="roll-btn" onclick="handleRollClick()" class="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-black orbitron text-xl shadow-[0_0_15px_rgba(79,70,229,0.5)] transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed mb-6">
+                LANCER LES DÉS
+            </button>
+        </div>
+
+        <!-- Animation Zone -->
+        <div class="w-full bg-gray-950 rounded-xl border border-gray-800 p-4 min-h-[150px] flex flex-col items-center justify-center">
+            <div id="dice-animation-container" class="dice-container w-full">
+                <!-- Dés injectés ici -->
+            </div>
+            <div id="step-counter-display" class="orbitron font-black text-center w-full">0</div>
+        </div>
+    </aside>
+
+    <!-- CENTER COLUMN (BOARD) -->
+    <main class="w-full md:w-1/2 flex-grow flex items-center justify-center relative overflow-hidden p-4 h-[50vh] md:h-full z-10">
+        <div id="board-container">
+            <!-- Cases générées par JS -->
+        </div>
+    </main>
+
+    <!-- RIGHT COLUMN (INVENTORY) -->
+    <aside class="w-full md:w-1/4 bg-gray-900/80 border-t md:border-t-0 md:border-l border-gray-700 p-4 flex flex-col shrink-0 backdrop-blur-md z-20 overflow-y-auto">
+        <div class="text-center mb-6">
+            <h2 class="text-xl text-white orbitron font-bold">Inventaire</h2>
+            <p class="text-xs text-gray-400">Cliquez sur une carte pour la préparer avant de lancer.</p>
+        </div>
+        
+        <div id="cards-container" class="flex flex-col gap-3 flex-grow">
+            <!-- Cartes injectées ici -->
+        </div>
+    </aside>
+
+<script>
+/** ------------------------------------------------------
+ * CONFIGURATION ET DONNÉES
+ * ------------------------------------------------------ */
+const TOTAL_TILES = 63;
+const BOARD_SIZE = 1000;
+
+// Types de cases
+const TILES_DATA = {};
+[9, 18, 27, 36, 45, 54].forEach(n => TILES_DATA[n] = { type: 'wormhole', icon: '🌌', label: "Trou de Ver" });
+[6].forEach(n => TILES_DATA[n] = { type: 'bridge', icon: '🌀', label: "Pont Hyper-espace" });
+[31, 52].forEach(n => TILES_DATA[n] = { type: 'prison', icon: '🕳️', label: "Trou Noir" });
+[58].forEach(n => TILES_DATA[n] = { type: 'death', icon: '💥', label: "Supernova" });
+[5, 12, 17, 24, 34, 40, 47, 55].forEach(n => TILES_DATA[n] = { type: 'card', icon: '❓', label: "Carte" });
+TILES_DATA[63] = { type: 'end', icon: '👑', label: "Neptune" };
+
+// Vaisseau (Base SVG) - Il pointe vers le HAUT (0, -1)
+const SHIP_SVG = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 22L12 17L22 22Z" /></svg>`;
+const COLORS = ["#EF4444", "#3B82F6", "#10B981", "#F59E0B"]; 
+
+const CARDS_DB = [
+    { id: 'double', name: 'Dé x2', desc: 'Multiplie le résultat de vos dés par 2.', rarity: 'epic', icon: '🚀' },
+    { id: 'precision', name: 'Dé de Précision', desc: 'Fait un petit lancer de 1 à 3 cases.', rarity: 'common', icon: '🎯' },
+    { id: 'escape', name: 'Sortie de Trou', desc: 'S\'échapper d\'une prison et jouer.', rarity: 'rare', icon: '🗝️' }
+];
+
+let players = [];
+let turnIndex = 0;
+let tilesPositions = [];
+let isAnimating = false;
+let activeCardIndex = null; // Index de la carte primée par le joueur
+
+// DOM
+const boardEl = document.getElementById('board-container');
+const cardsContainer = document.getElementById('cards-container');
+const rollBtn = document.getElementById('roll-btn');
+const currentPlayerName = document.getElementById('current-player-name');
+const currentPlayerPanel = document.getElementById('current-player-panel');
+const prisonStatus = document.getElementById('prison-status');
+const prisonTurnsSpan = document.getElementById('prison-turns');
+const diceContainer = document.getElementById('dice-animation-container');
+const stepCounter = document.getElementById('step-counter-display');
+const activeBuffDisplay = document.getElementById('active-buff-display');
+
+/** ------------------------------------------------------
+ * GÉOMÉTRIE (Spirale d'Archimède)
+ * ------------------------------------------------------ */
+function generateSpiralPositions() {
+    tilesPositions = [];
+    let theta = 0;
+    let r = 180; 
+    
+    for (let i = 0; i < TOTAL_TILES; i++) {
+        let x = 500 + r * Math.cos(theta);
+        let y = 500 + r * Math.sin(theta);
+        
+        let hue = 320 - ((i / (TOTAL_TILES - 1)) * 320); 
+        let color = `hsl(${hue}, 80%, 60%)`;
+
+        tilesPositions.push({ x, y, color });
+        
+        let arcLength = 70; 
+        theta += arcLength / r;
+        r += 5; 
+    }
+    tilesPositions.reverse(); // Index 0 = Extérieur (Case 1)
+}
+
+/** ------------------------------------------------------
+ * INITIALISATION
+ * ------------------------------------------------------ */
+function startGame(numPlayers) {
+    document.getElementById('modal-overlay').style.display = 'none';
+    
+    for (let i = 0; i < numPlayers; i++) {
+        players.push({
+            id: i,
+            name: `Joueur ${i + 1}`,
+            color: COLORS[i],
+            pos: 1,
+            cards: [],
+            prisonTurns: 0,
+            angle: 0
+        });
+    }
+
+    generateSpiralPositions();
+    
+    // Créer Cases
+    for (let i = 0; i < TOTAL_TILES; i++) {
+        let tileNum = i + 1;
+        let pos = tilesPositions[i];
+        let tile = document.createElement('div');
+        tile.id = `tile-${tileNum}`;
+        tile.className = 'tile tile-dimmed';
+        tile.style.left = `${(pos.x / BOARD_SIZE) * 100}%`;
+        tile.style.top = `${(pos.y / BOARD_SIZE) * 100}%`;
+        tile.style.setProperty('--tile-color', pos.color);
+        
+        if (TILES_DATA[tileNum]) {
+            tile.innerHTML = `<span class="drop-shadow-md">${TILES_DATA[tileNum].icon}</span>`;
+        } else {
+            tile.innerText = tileNum;
+        }
+        boardEl.appendChild(tile);
+    }
+
+    // Créer Pions
+    players.forEach(p => {
+        let pawn = document.createElement('div');
+        pawn.id = `pawn-${p.id}`;
+        pawn.className = 'pawn';
+        pawn.style.color = p.color;
+        pawn.innerHTML = SHIP_SVG;
+        boardEl.appendChild(pawn);
+        updatePawnPositionInstant(p);
+    });
+
+    startTurnTransition();
+}
+
+/** ------------------------------------------------------
+ * RENDU VISUEL & ROTATION
+ * ------------------------------------------------------ */
+function updatePawnPositionInstant(player) {
+    let pos = tilesPositions[player.pos - 1];
+    let pawn = document.getElementById(`pawn-${player.id}`);
+    
+    let offset = (player.id - (players.length - 1)/2) * 1.5; 
+    
+    pawn.style.left = `calc(${(pos.x / BOARD_SIZE) * 100}% + ${offset}%)`;
+    pawn.style.top = `calc(${(pos.y / BOARD_SIZE) * 100}% + ${offset}%)`;
+    pawn.style.transform = `translate(-50%, -50%) rotate(${player.angle}deg)`;
+}
+
+function updateLighting() {
+    for (let i = 1; i <= TOTAL_TILES; i++) {
+        let tile = document.getElementById(`tile-${i}`);
+        let isOccupied = players.some(p => p.pos === i);
+        let isSpecial = !!TILES_DATA[i];
+        
+        if (isOccupied || isSpecial) {
+            tile.classList.add('tile-lit');
+            tile.classList.remove('tile-dimmed');
+        } else {
+            tile.classList.add('tile-dimmed');
+            tile.classList.remove('tile-lit');
+        }
+    }
+}
+
+/** ------------------------------------------------------
+ * GESTION DES TOURS & UI
+ * ------------------------------------------------------ */
+async function startTurnTransition() {
+    isAnimating = true; // On bloque tout pendant la transition
+    refreshUI(); // Grise le bouton 
+
+    let p = players[turnIndex];
+    
+    // Overlay animation
+    const overlay = document.getElementById('turn-overlay');
+    const overlayText = document.getElementById('turn-overlay-text');
+    
+    overlay.style.display = 'flex';
+    overlayText.innerText = `Au tour du\n${p.name}`;
+    overlayText.style.color = p.color;
+    
+    requestAnimationFrame(() => {
+        overlayText.style.transform = 'scale(1)';
+    });
+
+    await sleep(1500);
+    overlayText.style.transform = 'scale(0)';
+    await sleep(500);
+    overlay.style.display = 'none';
+
+    // Fin de la transition, on rend la main au joueur
+    isAnimating = false;
+    activeCardIndex = null; 
+    refreshUI(); 
+}
+
+function refreshUI() {
+    let p = players[turnIndex];
+    
+    // Left HUD - Player stats
+    currentPlayerName.innerText = p.name;
+    currentPlayerPanel.style.borderColor = p.color;
+    currentPlayerPanel.style.boxShadow = `0 0 20px ${p.color}40`;
+    
+    if (p.prisonTurns > 0) {
+        prisonStatus.classList.remove('hidden');
+        prisonTurnsSpan.innerText = p.prisonTurns;
+    } else {
+        prisonStatus.classList.add('hidden');
+    }
+
+    // Bouton de lancer dynamique
+    rollBtn.disabled = isAnimating;
+    if (p.prisonTurns > 0 && (!p.cards[activeCardIndex] || p.cards[activeCardIndex].id !== 'escape')) {
+        rollBtn.innerText = "BLOQUÉ (Passer le tour)";
+        rollBtn.classList.replace('from-blue-600', 'from-red-600');
+        rollBtn.classList.replace('to-indigo-600', 'to-orange-600');
+    } else {
+        rollBtn.innerText = "LANCER LES DÉS";
+        rollBtn.classList.replace('from-red-600', 'from-blue-600');
+        rollBtn.classList.replace('to-orange-600', 'to-indigo-600');
+    }
+
+    // Active Buff Display
+    if (activeCardIndex !== null && p.cards[activeCardIndex]) {
+        activeBuffDisplay.innerText = `✨ Effet Actif : ${p.cards[activeCardIndex].name} ✨`;
+        activeBuffDisplay.classList.remove('hidden');
+    } else {
+        activeBuffDisplay.classList.add('hidden');
+    }
+
+    // Right HUD (Cards)
+    cardsContainer.innerHTML = '';
+    if (p.cards.length === 0) {
+        cardsContainer.innerHTML = `<p class="text-gray-500 text-sm italic text-center mt-4">Aucune carte.</p>`;
+    } else {
+        p.cards.forEach((card, idx) => {
+            let btn = document.createElement('div');
+            btn.className = `action-card p-3 rounded-lg flex items-center gap-3 rarity-${card.rarity}`;
+            
+            // Highlight si primée
+            if (activeCardIndex === idx) {
+                btn.classList.add('card-active');
+            }
+
+            btn.innerHTML = `
+                <div class="text-2xl">${card.icon}</div>
+                <div class="flex-grow">
+                    <div class="font-bold text-white text-sm">${card.name}</div>
+                    <div class="text-xs text-gray-300 leading-tight">${card.desc}</div>
+                </div>
+            `;
+            
+            // On peut préparer une carte uniquement si on ne joue pas et si c'est cohérent
+            if (isAnimating) {
+                btn.style.opacity = '0.5';
+                btn.style.cursor = 'not-allowed';
+            } else {
+                btn.onclick = () => primeCard(idx);
+            }
+            cardsContainer.appendChild(btn);
+        });
+    }
+
+    // On remet la zone d'animation à zéro si on n'anime pas
+    if (!isAnimating) {
+        diceContainer.style.display = 'flex';
+        diceContainer.innerHTML = ''; 
+        stepCounter.style.display = 'none';
+    }
+
+    updateLighting();
+}
+
+/** ------------------------------------------------------
+ * ACTIONS JOUEUR (PRIMER CARTES & LANCER)
+ * ------------------------------------------------------ */
+function primeCard(idx) {
+    if (isAnimating) return;
+    
+    // Toggle (si on clique sur la carte déjà primée, on l'annule)
+    if (activeCardIndex === idx) {
+        activeCardIndex = null;
+    } else {
+        activeCardIndex = idx;
+    }
+    refreshUI();
+}
+
+async function handleRollClick() {
+    if (isAnimating) return;
+    let p = players[turnIndex];
+    let card = activeCardIndex !== null ? p.cards[activeCardIndex] : null;
+
+    // GESTION PRISON AVANT TOUT
+    if (p.prisonTurns > 0) {
+        if (card && card.id === 'escape') {
+            // Utilisation de la carte d'évasion
+            p.prisonTurns = 0;
+            p.cards.splice(activeCardIndex, 1);
+            activeCardIndex = null;
+            spawnFloatingText("Évasion réussie !", p.pos, "#10B981");
+            // On le laisse continuer pour faire son lancer normal en dessous
+        } else {
+            // Passe son tour en prison
+            p.prisonTurns--;
+            isAnimating = true;
+            refreshUI();
+            spawnFloatingText(`En Prison !`, p.pos, "#EF4444");
+            await sleep(1000);
+            endTurn();
+            return;
+        }
+    }
+
+    // DÉBUT DU LANCER NORMAL
+    isAnimating = true;
+    refreshUI();
+    
+    // Calcul des dés de base (2d6)
+    let isPrecision = card && card.id === 'precision';
+    let nbDiceToAnimate = isPrecision ? 1 : 2;
+    
+    // Setup UI dés
+    diceContainer.innerHTML = '';
+    let diceEls = [];
+    for(let i=0; i<nbDiceToAnimate; i++) {
+        let d = document.createElement('div');
+        d.className = 'dice-box rolling';
+        d.innerText = '?';
+        diceContainer.appendChild(d);
+        diceEls.push(d);
+    }
+
+    // Fausse animation de roulement
+    for(let loop=0; loop<15; loop++) {
+        diceEls.forEach(el => el.innerText = Math.floor(Math.random() * (isPrecision?3:6)) + 1);
+        await sleep(60);
+    }
+
+    // Résultat mathématique
+    let finalRollValue = 0;
+    
+    if (isPrecision) {
+        finalRollValue = Math.floor(Math.random() * 3) + 1;
+        diceEls[0].innerText = finalRollValue;
+        diceEls[0].style.color = p.color;
+        diceEls[0].classList.remove('rolling');
+        spawnFloatingText("Précision !", p.pos, "#3B82F6");
+    } else {
+        let d1 = Math.floor(Math.random() * 6) + 1;
+        let d2 = Math.floor(Math.random() * 6) + 1;
+        finalRollValue = d1 + d2;
+        diceEls[0].innerText = d1;
+        diceEls[1].innerText = d2;
+        diceEls.forEach(el => { el.style.color = p.color; el.classList.remove('rolling'); });
+    }
+
+    // Application Modificateur x2
+    if (card && card.id === 'double') {
+        spawnFloatingText("Dé x2 !", p.pos, "#FBBF24");
+        await sleep(600);
+        finalRollValue *= 2;
+    }
+
+    // Consommation de la carte
+    if (card) {
+        p.cards.splice(activeCardIndex, 1);
+        activeCardIndex = null;
+    }
+
+    await sleep(800);
+    
+    await prepareMovementCounter(finalRollValue);
+    await executeMovement(p, finalRollValue);
+    await sleep(200);
+    await resolveTileLogic(p, finalRollValue);
+}
+
+async function prepareMovementCounter(total) {
+    diceContainer.style.display = 'none';
+    stepCounter.style.display = 'flex';
+    stepCounter.innerText = total;
+    stepCounter.style.color = players[turnIndex].color;
+    await sleep(300);
+}
+
+/** ------------------------------------------------------
+ * MOUVEMENT & MÉCANIQUES DE CASES
+ * ------------------------------------------------------ */
+async function executeMovement(player, amount) {
+    let current = player.pos;
+    let remaining = amount;
+    let direction = 1;
+
+    while (remaining > 0) {
+        let nextPos = current + direction;
+        
+        // Rebond à la fin
+        if (nextPos > TOTAL_TILES) {
+            nextPos = TOTAL_TILES - 1;
+            direction = -1;
+            spawnFloatingText("Rebond !", TOTAL_TILES, "#F59E0B");
+        }
+        
+        let p1 = tilesPositions[current - 1];
+        let p2 = tilesPositions[nextPos - 1];
+        if (p1 && p2) {
+            let dx = p2.x - p1.x;
+            let dy = p2.y - p1.y;
+            player.angle = (Math.atan2(dy, dx) * 180 / Math.PI) + 90;
+        }
+
+        current = nextPos;
+        player.pos = current;
+        
+        stepCounter.innerText = remaining - 1;
+        
+        updatePawnPositionInstant(player);
+        updateLighting();
+        
+        await sleep(350);
+        remaining--;
+    }
+}
+
+async function teleportPlayer(player, targetTile) {
+    let p1 = tilesPositions[player.pos - 1];
+    let p2 = tilesPositions[targetTile - 1];
+    
+    if (p1 && p2) {
+        let dx = p2.x - p1.x;
+        let dy = p2.y - p1.y;
+        player.angle = (Math.atan2(dy, dx) * 180 / Math.PI) + 90;
+    }
+    player.pos = targetTile;
+    updatePawnPositionInstant(player);
+    updateLighting();
+    await sleep(500);
+}
+
+async function resolveTileLogic(player, rollValue) {
+    if (player.pos === TOTAL_TILES) {
+        document.getElementById('victory-overlay').style.display = 'flex';
+        document.getElementById('victory-text').innerText = `${player.name} remporte la course cosmique !`;
+        return; // Fin du jeu
+    }
+
+    let tileInfo = TILES_DATA[player.pos];
+    
+    if (tileInfo) {
+        switch (tileInfo.type) {
+            case 'wormhole':
+                // Règle de l'oie : on rejoue la même valeur de dés
+                spawnFloatingText("Boost Spatial ! (+" + rollValue + ")", player.pos, "#3B82F6");
+                await sleep(800);
+                await prepareMovementCounter(rollValue);
+                await executeMovement(player, rollValue);
+                // Si on atterit encore sur une case spéciale après le boost, on relance la logique
+                await resolveTileLogic(player, rollValue);
+                return; // Sortir pour ne pas endTurn() deux fois
+                
+            case 'bridge':
+                spawnFloatingText("Pont Hyper-espace !", player.pos, "#38BDF8");
+                await sleep(800);
+                await teleportPlayer(player, 12);
+                await resolveTileLogic(player, rollValue); // Check la case 12 au cas où
+                return;
+
+            case 'prison':
+                spawnFloatingText("Trou Noir : Capturé !", player.pos, "#A855F7");
+                player.prisonTurns = 3; 
+                break;
+                
+            case 'death':
+                spawnFloatingText("Supernova !", player.pos, "#EF4444");
+                await sleep(800);
+                await teleportPlayer(player, 1);
+                break;
+                
+            case 'card':
+                spawnFloatingText("+1 Carte", player.pos, "#10B981");
+                let randCard = CARDS_DB[Math.floor(Math.random() * CARDS_DB.length)];
+                player.cards.push({...randCard}); 
+                break;
+        }
+        updateLighting();
+        await sleep(500);
+    }
+    
+    endTurn();
+}
+
+function endTurn() {
+    turnIndex = (turnIndex + 1) % players.length;
+    startTurnTransition();
+}
+
+/** ------------------------------------------------------
+ * UTILITAIRES
+ * ------------------------------------------------------ */
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function spawnFloatingText(text, tileIndex, color = '#FFF') {
+    let pos = tilesPositions[tileIndex - 1];
+    let el = document.createElement('div');
+    el.className = 'floating-text';
+    el.innerText = text;
+    el.style.color = color;
+    el.style.left = `calc(${(pos.x / BOARD_SIZE) * 100}% - 40px)`;
+    el.style.top = `calc(${(pos.y / BOARD_SIZE) * 100}% - 50px)`;
+    boardEl.appendChild(el);
+    setTimeout(() => el.remove(), 2500);
+}
+</script>
+</body>
+</html>
